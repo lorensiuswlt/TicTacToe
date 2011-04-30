@@ -61,44 +61,14 @@ public class TicConnection {
 					if (doConnect) connect();
 					
 					Log.d(TAG, "Registering user " + username);
+
+					mRecvThread = new ReceivingThread();
+					
+					mRecvThread.start();
 					
 					mWriter.write("{\"subscribe\":\"" + username + "\"}");
 					mWriter.flush();
 
-                    String response = "";
-
-					while (!(response = streamToString2(mReader)).equals("")) {
-                        Log.d(TAG, response);
-
-						if (!response.equals("")) {
-							JSONObject jsonObj 	= (JSONObject) new JSONTokener(response).nextValue();							
-							String resp			= jsonObj.getString("response");
-							
-							if (resp.equals("rejected")) {
-								mListener.onFail("rejected");								
-								mSocket.close();
-								
-								String error = jsonObj.getString("error");
-								
-								Log.e(TAG, error + ", socket closed");
-								
-								mListener.onFail(error);
-								
-								break;
-							} else if (resp.equals("accepted")) {
-								connected = true;
-								
-								mListener.onSuccess();
-								
-								mRecvThread = new ReceivingThread();
-								mRecvThread.start();
-								
-								Log.d(TAG, "Connected to server as user " + username);
-								
-								break;
-							}
-						}
-					}
 				} catch (Exception e) {
 					connected = false;
 					
@@ -166,8 +136,17 @@ public class TicConnection {
 	}
 	
     private String streamToString2(InputStream mReader) throws IOException {
-        BufferedReader br = new BufferedReader(new InputStreamReader(mReader));
-        return br.readLine();
+//    	Log.d(TAG, "stream to string");
+//        BufferedReader br = new BufferedReader(new InputStreamReader(mReader));
+//        String str = br.readLine();
+//        Log.d(TAG, str);
+//        return str;
+    	StringBuffer sb = new StringBuffer();
+    	char c;
+    	while((c = (char)mReader.read()) != '\n'){
+    		sb.append(c);
+    	}
+    	return sb.toString();
     }
 
 	class ReceivingThread extends Thread {
@@ -189,12 +168,14 @@ public class TicConnection {
 			
 			try {
 				while (running) {
-					String response 	= streamToString2(mReader);
-					
-					JSONObject jsonObj 	= (JSONObject) new JSONTokener(response).nextValue();							
+					String response = streamToString2(mReader);
 					
 					Log.d(TAG, response);
 					
+					if (response.equals("")) continue;
+					
+					JSONObject jsonObj 	= (JSONObject) new JSONTokener(response).nextValue();							
+			
 					if (jsonObj.has("board")) {
 						JSONArray jsonBoard = (JSONArray) jsonObj.get("board");
 						
@@ -210,6 +191,25 @@ public class TicConnection {
 						String username = jsonObj.getString("playing");
 						
 						mListener.onStart(username);
+					} else if (jsonObj.has("response")) {
+						String resp	= jsonObj.getString("response");
+						
+						if (resp.equals("rejected")) {
+							mListener.onFail("rejected");								
+							mSocket.close();
+							
+							String error = jsonObj.getString("error");
+							
+							Log.e(TAG, error + ", socket closed");
+							
+							mListener.onFail(error);
+						} else if (resp.equals("accepted")) {
+							connected = true;
+							
+							mListener.onSuccess();
+							
+							Log.d(TAG, "Connected to server as user ");
+						}
 					}
 				}
 			} catch (Exception e) {
