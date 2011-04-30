@@ -59,7 +59,7 @@ public class Tictactoe extends Activity implements TicListener {
 		View view				= inflater.inflate(R.layout.dialog_username, null);
 		
 		final EditText userEt	= (EditText) view.findViewById(R.id.username);
-		
+
 		AlertDialog.Builder builder	= new AlertDialog.Builder(this);
 		
 		builder.setView(view);
@@ -129,7 +129,7 @@ public class Tictactoe extends Activity implements TicListener {
         
         mGridView.setOnItemClickListener(new OnItemClickListener() {
 			public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
-				String json = "{move: " + String.valueOf(position + 1) + "}";
+				String json = "{\"move\": \"" + String.valueOf(position + 1) + "\"}";
 				
 				mConnection.send(json);
 			}

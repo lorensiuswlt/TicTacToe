@@ -63,14 +63,16 @@ public class TicConnection {
 					
 					Log.d(TAG, "Registering user " + username);
 					
-					String json = "{subscribe:" + username + "}";
+					String json = "{\"subscribe\":\"" + username + "\"}";
 					
 					mWritter.write(json);
 					mWritter.flush();
-					
-					while (true) {
-						String response = streamToString(mReader);
-						
+
+                    String response = "";
+
+					while (!(response = streamToString2(mReader)).equals("")) {
+                        Log.d(TAG, response);
+
 						if (!response.equals("")) {
 							JSONObject jsonObj 	= (JSONObject) new JSONTokener(response).nextValue();							
 							String resp			= jsonObj.getString("response");
@@ -115,7 +117,8 @@ public class TicConnection {
 				Log.d(TAG, "Connection thread ended");
 				
 			}
-		}.start();		
+
+		}.start();
 	}
 
 	public void disconnect() {
@@ -187,7 +190,12 @@ public class TicConnection {
 		
 		return str;
 	}
-	
+
+    String streamToString2(InputStream mReader) throws IOException {
+        BufferedReader br = new BufferedReader(new InputStreamReader(mReader));
+        return br.readLine();
+    }
+
 	class ReceivingThread extends Thread {
 		private volatile boolean running = false;
 		
@@ -207,7 +215,7 @@ public class TicConnection {
 			
 			try {
 				while (running) {
-					String response = streamToString(mReader);
+					String response = streamToString2(mReader);
 					
 					JSONObject jsonObj 	= (JSONObject) new JSONTokener(response).nextValue();							
 					
