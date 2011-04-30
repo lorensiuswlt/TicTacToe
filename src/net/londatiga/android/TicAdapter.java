@@ -57,20 +57,13 @@ public class TicAdapter extends BaseAdapter {
 		
 		int type = mData[position];
 		int img  = R.drawable.tic_normal;
-		
-		switch (type) {
-		case 0:
-			img = R.drawable.tic_normal;
-			break;
-			
-		case 1:
+	
+		if (type == 1)
 			img = R.drawable.tic;
-			break;
-			
-		case 2:
+		else if (type == -1)
 			img = R.drawable.toe;
-			break;
-		}
+		else
+			img = R.drawable.tic_normal;
 		
 		ticImage.setImageResource(img);
 		

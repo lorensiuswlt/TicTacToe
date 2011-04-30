@@ -112,8 +112,11 @@ public class Tictactoe extends Activity implements TicListener {
         	public void onClick(View v) {
         		if (!mConnection.isConnected()) 
         			connAlert.show();
-        		else
+        		else {
         			dcAlert.show();
+        			
+        			mConnectBtn.setText("Connect");
+        		}
         	}
         });
         
@@ -191,16 +194,20 @@ public class Tictactoe extends Activity implements TicListener {
     	});
     }
     
-    public void onBoard(final int[] board, final String status, final boolean play) {
+    public void onBoard(final int[] board, final String status, final boolean move) {
     	Tictactoe.this.runOnUiThread(new Runnable() {
     		@Override
     		public void run() {
     			mAdapter.setData(board);
     			mGridView.setAdapter(mAdapter);
     			
-    			mGridView.setEnabled(play);
+    			mGridView.setEnabled(true);
     			
-    			if (status != null) {
+    			if (move) android.util.Log.d("TEST", "moveing ...");
+    			
+    			android.util.Log.d("TEST", status);
+    			
+    			if (!status.equals("null")) {
     				mGridView.setEnabled(false);
     				
     				String msg = (status.equals("win")) ? "Congrats you win!" : "Poor, you loose!";
@@ -225,7 +232,7 @@ public class Tictactoe extends Activity implements TicListener {
     					}
     				});
     				
-	    			builder.create().show();
+    				builder.create().show();
     			}
     		}
     	});

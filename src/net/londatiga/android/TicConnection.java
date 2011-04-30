@@ -21,7 +21,7 @@ import org.json.JSONTokener;
 
 public class TicConnection {
 	private Socket mSocket;
-	private OutputStreamWriter mWritter;
+	private OutputStreamWriter mWriter;
 	private InputStream mReader;
 	private TicListener mListener;
 	private ReceivingThread mRecvThread;
@@ -37,16 +37,15 @@ public class TicConnection {
 	
 	private void connect() throws Exception {
 		try {
-			String server 			= mShared.getString("server", "192.168.1.1");
-			String port				= mShared.getString("port", "1234");
+			String server 	= mShared.getString("server", "192.168.1.1");
+			String port		= mShared.getString("port", "1234");
 			
 			Log.d(TAG, "Opening connection to " + server + ":" + port);
-			InetAddress serverAddr = InetAddress.getByName(server);
 			
-			mSocket 	= new Socket(serverAddr, Integer.valueOf(port));
+			mSocket 		= new Socket(InetAddress.getByName(server), Integer.valueOf(port));
 			
-			mWritter 	= new OutputStreamWriter(mSocket.getOutputStream());
-			mReader 	= mSocket.getInputStream();
+			mWriter 		= new OutputStreamWriter(mSocket.getOutputStream());
+			mReader 		= mSocket.getInputStream();
 	 	} catch (Exception e) {
 	 		throw e;
 	 	}
@@ -63,10 +62,8 @@ public class TicConnection {
 					
 					Log.d(TAG, "Registering user " + username);
 					
-					String json = "{\"subscribe\":\"" + username + "\"}";
-					
-					mWritter.write(json);
-					mWritter.flush();
+					mWriter.write("{\"subscribe\":\"" + username + "\"}");
+					mWriter.flush();
 
                     String response = "";
 
@@ -76,8 +73,6 @@ public class TicConnection {
 						if (!response.equals("")) {
 							JSONObject jsonObj 	= (JSONObject) new JSONTokener(response).nextValue();							
 							String resp			= jsonObj.getString("response");
-							
-							Log.d(TAG, resp);
 							
 							if (resp.equals("rejected")) {
 								mListener.onFail("rejected");								
@@ -114,8 +109,7 @@ public class TicConnection {
 					e.printStackTrace();
 				}
 				
-				Log.d(TAG, "Connection thread ended");
-				
+				Log.d(TAG, "Connection thread ended");				
 			}
 
 		}.start();
@@ -127,6 +121,10 @@ public class TicConnection {
 			connected = false;
 			
 			try {
+				if (mRecvThread.isRunning()) mRecvThread.shutdown();
+				
+				mWriter.close();
+				mReader.close();
 				mSocket.close();
 			} catch (Exception e) {
 				Log.e(TAG, "Closing socket failed");
@@ -152,46 +150,22 @@ public class TicConnection {
 				Log.d(TAG, "Sending packet " + packet);
 				
 				try {
-					mWritter.write(packet);
-					mWritter.flush();
+					mWriter.write(packet);
+					mWriter.flush();
 					
 					mListener.onSendSuccess();
 				} catch (Exception e) {
 					mListener.onSendFail("Sent failed, write socket error");
 					
 					Log.e(TAG, "Write socket error");
+					
 					e.printStackTrace();
 				}
 			}
 		}.start();
 	}
 	
-	private String streamToString(InputStream is) throws IOException {
-		String str  = "";
-		
-		if (is != null) {
-			StringBuilder sb = new StringBuilder();
-			String line;
-			
-			try {
-				BufferedReader reader 	= new BufferedReader(new InputStreamReader(is));
-				
-				while ((line = reader.readLine()) != null) {
-					sb.append(line);
-				}
-				
-				reader.close();
-			} finally {
-				is.close();
-			}
-			
-			str = sb.toString();
-		}
-		
-		return str;
-	}
-
-    String streamToString2(InputStream mReader) throws IOException {
+    private String streamToString2(InputStream mReader) throws IOException {
         BufferedReader br = new BufferedReader(new InputStreamReader(mReader));
         return br.readLine();
     }
@@ -215,9 +189,11 @@ public class TicConnection {
 			
 			try {
 				while (running) {
-					String response = streamToString2(mReader);
+					String response 	= streamToString2(mReader);
 					
 					JSONObject jsonObj 	= (JSONObject) new JSONTokener(response).nextValue();							
+					
+					Log.d(TAG, response);
 					
 					if (jsonObj.has("board")) {
 						JSONArray jsonBoard = (JSONArray) jsonObj.get("board");
@@ -229,16 +205,18 @@ public class TicConnection {
 							board[i] = jsonBoard.getInt(i);
 						}
 						
-						mListener.onBoard(board, jsonObj.getString("status"), jsonObj.getBoolean("play"));
-					} else if (jsonObj.has("play")) {
-						String username = jsonObj.getString("play");
+						mListener.onBoard(board, jsonObj.getString("status"), jsonObj.getBoolean("moving"));
+					} else if (jsonObj.has("playing")) {
+						String username = jsonObj.getString("playing");
 						
 						mListener.onStart(username);
 					}
 				}
 			} catch (Exception e) {
 				mListener.onFail("Read error");
+				
 				Log.e(TAG, "Read error");
+				
 				e.printStackTrace();
 			} 
 			
