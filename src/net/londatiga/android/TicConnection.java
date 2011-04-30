@@ -1,62 +1,249 @@
 package net.londatiga.android;
 
-import android.content.Context;
+import android.preference.PreferenceManager;
 import android.util.Log;
 
-import java.io.OutputStreamWriter;
+import android.content.SharedPreferences;
+import android.content.Context;
+
+import java.io.BufferedReader;
+import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.OutputStreamWriter;
+import java.io.InputStream;
 
 import java.net.InetAddress;
 import java.net.Socket;
 
+import org.json.JSONObject;
+import org.json.JSONArray;
+import org.json.JSONTokener;
+
 public class TicConnection {
-	private Context mContext;
 	private Socket mSocket;
 	private OutputStreamWriter mWritter;
-	private InputStreamReader mReader;
+	private InputStream mReader;
+	private TicListener mListener;
+	private ReceivingThread mRecvThread;
+	private SharedPreferences mShared;
 	
 	private boolean connected = false;
-	
-	private static final String TAG = "TicTacToe";
-	private static final String HOST_ADDR = "192.168.1.1";
-	private static final int HOST_PORT = 1234;
+
+	private static final String TAG = "Tictactoe";
 	
 	public TicConnection(Context context) {
-		mContext = context;
+		mShared = PreferenceManager.getDefaultSharedPreferences(context);
 	}
 	
-	public void connect() {
+	private void connect() throws Exception {
 		try {
-			InetAddress serverAddr = InetAddress.getByName(HOST_ADDR);
+			String server 			= mShared.getString("server", "192.168.1.1");
+			String port				= mShared.getString("port", "1234");
 			
-			mSocket 	= new Socket(serverAddr, HOST_PORT);
+			Log.d(TAG, "Opening connection to " + server + ":" + port);
+			InetAddress serverAddr = InetAddress.getByName(server);
+			
+			mSocket 	= new Socket(serverAddr, Integer.valueOf(port));
 			
 			mWritter 	= new OutputStreamWriter(mSocket.getOutputStream());
-			mReader 	= new InputStreamReader(mSocket.getInputStream());
-			
-			connected	= true;
-		} catch (Exception e) {
-			connected = false;
-			Log.e(TAG, "Connection failed");
-			e.printStackTrace();
-		}
+			mReader 	= mSocket.getInputStream();
+	 	} catch (Exception e) {
+	 		throw e;
+	 	}
 	}
-	private final class ReceivingThread extends Thread {
-		@Override
-		public void run() {
+	
+	public void login(final String username, final boolean doConnect) {
+		new Thread() {
+			@Override
+			public void run() {
+				try {
+					Log.d(TAG, "Connection thread started");
+					
+					if (doConnect) connect();
+					
+					Log.d(TAG, "Registering user " + username);
+					
+					String json = "{subscribe:" + username + "}";
+					
+					mWritter.write(json);
+					mWritter.flush();
+					
+					while (true) {
+						String response = streamToString(mReader);
+						
+						if (!response.equals("")) {
+							JSONObject jsonObj 	= (JSONObject) new JSONTokener(response).nextValue();							
+							String resp			= jsonObj.getString("response");
+							
+							Log.d(TAG, resp);
+							
+							if (resp.equals("rejected")) {
+								mListener.onFail("rejected");								
+								mSocket.close();
+								
+								String error = jsonObj.getString("error");
+								
+								Log.e(TAG, error + ", socket closed");
+								
+								mListener.onFail(error);
+								
+								break;
+							} else if (resp.equals("accepted")) {
+								connected = true;
+								
+								mListener.onSuccess();
+								
+								mRecvThread = new ReceivingThread();
+								mRecvThread.start();
+								
+								Log.d(TAG, "Connected to server as user " + username);
+								
+								break;
+							}
+						}
+					}
+				} catch (Exception e) {
+					connected = false;
+					
+					mListener.onFail("Can't connect to server");
+					
+					Log.e(TAG, "Can't connect to server");
+					
+					e.printStackTrace();
+				}
+				
+				Log.d(TAG, "Connection thread ended");
+				
+			}
+		}.start();		
+	}
+
+	public void disconnect() {
+		if (connected) {
+			if (mRecvThread != null) mRecvThread.shutdown();
+			connected = false;
 			
+			try {
+				mSocket.close();
+			} catch (Exception e) {
+				Log.e(TAG, "Closing socket failed");
+				
+				e.printStackTrace();
+			}
 		}
 	}
 	
-	private  final class SendingThread extends Thread {
+	public boolean isConnected() {
+		return connected;
+	}
+	
+	public void setListener(TicListener listener) {
+		mListener = listener;
+	}
+	
+	public void send(final String packet) {
+		
+		new Thread() {
+			@Override
+			public void run() {
+				Log.d(TAG, "Sending packet " + packet);
+				
+				try {
+					mWritter.write(packet);
+					mWritter.flush();
+					
+					mListener.onSendSuccess();
+				} catch (Exception e) {
+					mListener.onSendFail("Sent failed, write socket error");
+					
+					Log.e(TAG, "Write socket error");
+					e.printStackTrace();
+				}
+			}
+		}.start();
+	}
+	
+	private String streamToString(InputStream is) throws IOException {
+		String str  = "";
+		
+		if (is != null) {
+			StringBuilder sb = new StringBuilder();
+			String line;
+			
+			try {
+				BufferedReader reader 	= new BufferedReader(new InputStreamReader(is));
+				
+				while ((line = reader.readLine()) != null) {
+					sb.append(line);
+				}
+				
+				reader.close();
+			} finally {
+				is.close();
+			}
+			
+			str = sb.toString();
+		}
+		
+		return str;
+	}
+	
+	class ReceivingThread extends Thread {
+		private volatile boolean running = false;
+		
+		public boolean isRunning() {
+			return running;
+		}
+		
+		public void shutdown() {
+			running = false;
+		}
+	
 		@Override
 		public void run() {
+			Log.d(TAG, "Receiving thread running");
 			
+			running = true;
+			
+			try {
+				while (running) {
+					String response = streamToString(mReader);
+					
+					JSONObject jsonObj 	= (JSONObject) new JSONTokener(response).nextValue();							
+					
+					if (jsonObj.has("board")) {
+						JSONArray jsonBoard = (JSONArray) jsonObj.get("board");
+						
+						int length	= jsonBoard.length();
+						int[] board = new int[length];
+						
+						for (int i = 0; i < length; i++) {
+							board[i] = jsonBoard.getInt(i);
+						}
+						
+						mListener.onBoard(board, jsonObj.getString("status"), jsonObj.getBoolean("play"));
+					} else if (jsonObj.has("play")) {
+						String username = jsonObj.getString("play");
+						
+						mListener.onStart(username);
+					}
+				}
+			} catch (Exception e) {
+				mListener.onFail("Read error");
+				Log.e(TAG, "Read error");
+				e.printStackTrace();
+			} 
+			
+			Log.d(TAG, "Receiving thread terminated");
 		}
 	}
 	
 	public interface TicListener {
 		abstract public void onSuccess();
 		abstract public void onFail(String error);
+		abstract public void onSendSuccess();
+		abstract public void onSendFail(String error);
+		abstract public void onStart(String username);
+		abstract public void onBoard(int[] board, String status, boolean move);
 	}
 }

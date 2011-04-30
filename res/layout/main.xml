@@ -22,7 +22,7 @@
     	android:id="@+id/status"
 		android:layout_width="fill_parent"
     	android:layout_height="wrap_content"
-    	android:text=""
+    	android:text="Playing with: "
     	android:textStyle="bold"
     	android:textSize="14sp"/>
     	

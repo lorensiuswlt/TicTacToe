@@ -1,7 +1,5 @@
 package net.londatiga.android;
 
-import net.londatiga.android.Tictactoe.TicData;
-
 import android.view.View;
 import android.view.ViewGroup;
 
@@ -11,18 +9,16 @@ import android.widget.ImageView;
 
 import android.content.Context;
 
-import java.util.ArrayList;
-
 public class TicAdapter extends BaseAdapter {
 	private Context mContext;
-	private ArrayList<TicData> mData;
+	private int[] mData;
 	private int mLayoutParam;
 	
 	public TicAdapter(Context context) {
 		mContext = context;
 	}
 	
-	public void setData(ArrayList<TicData> data) {
+	public void setData(int[] data) {
 		mData = data;
 	}
 	
@@ -32,7 +28,7 @@ public class TicAdapter extends BaseAdapter {
 	
 	@Override
 	public int getCount() {
-		return mData.size();
+		return mData.length;
 	}
 
 	@Override
@@ -59,6 +55,24 @@ public class TicAdapter extends BaseAdapter {
 			ticImage = (ImageView) convertView;
 		}
 		
+		int type = mData[position];
+		int img  = R.drawable.tic_normal;
+		
+		switch (type) {
+		case 0:
+			img = R.drawable.tic_normal;
+			break;
+			
+		case 1:
+			img = R.drawable.tic;
+			break;
+			
+		case 2:
+			img = R.drawable.toe;
+			break;
+		}
+		
+		ticImage.setImageResource(img);
 		
 		return ticImage;
 	}
