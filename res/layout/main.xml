@@ -3,10 +3,33 @@
     android:orientation="vertical"
     android:layout_width="fill_parent"
     android:layout_height="fill_parent"
-    >
-<TextView  
-    android:layout_width="fill_parent" 
-    android:layout_height="wrap_content" 
-    android:text="@string/hello"
-    />
+    android:padding="10dp">
+	
+	<TextView
+		android:layout_width="fill_parent"
+    	android:layout_height="wrap_content"
+    	android:text="TIC TAC TOE"
+    	android:textStyle="bold"
+    	android:textSize="20sp"/>
+    	    
+  	<Button
+  		android:id="@+id/connect"
+  		android:layout_width="wrap_content"
+    	android:layout_height="wrap_content"
+    	android:text="  Connect  "/>
+    	
+    <TextView
+    	android:id="@+id/status"
+		android:layout_width="fill_parent"
+    	android:layout_height="wrap_content"
+    	android:text=""
+    	android:textStyle="bold"
+    	android:textSize="14sp"/>
+    	
+    <GridView 
+    	android:id="@+id/gridView"
+    	android:layout_marginTop="10dp"
+    	android:layout_width="fill_parent"
+    	android:layout_height="wrap_content"/>
+
 </LinearLayout>
