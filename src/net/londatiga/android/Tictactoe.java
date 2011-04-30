@@ -116,6 +116,9 @@ public class Tictactoe extends Activity implements TicListener {
         			dcAlert.show();
         			
         			mConnectBtn.setText("Connect");
+        			
+        			mAdapter.setData(initTic());
+        			mGridView.setAdapter(mAdapter);
         		}
         	}
         });
